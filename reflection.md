@@ -2,6 +2,13 @@
 
 ## 1. System Design
 
+Core user actions:
+
+- The user can enter and update basic owner and pet information.
+- The user can add and manage pet care tasks (for example walks, feeding, medication, enrichment, and grooming) with details like duration and priority.
+- The user can generate and view a daily plan that uses constraints and priorities, with a clear explanation of why the plan was chosen.
+
+
 **a. Initial design**
 
 - Briefly describe your initial UML design.
