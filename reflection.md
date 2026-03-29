@@ -42,6 +42,11 @@ Core user actions:
 - This means the scheduler may miss a mathematically perfect combination of tasks in some edge cases, but it stays simple, explainable, and fast for daily personal planning.
 - For this scenario, that tradeoff is reasonable because owners need transparent decisions they can trust and adjust quickly, not a black-box optimizer.
 
+- A second tradeoff is in `detect_time_conflicts()`: it only flags tasks that share an exact `HH:MM` start time — it does not check for overlapping durations.
+- For example, a 30-minute walk starting at `08:00` and a 10-minute feeding starting at `08:15` would conflict in reality (both active at 08:15–08:30), but the current method would not catch it because the start times differ.
+- Checking for duration overlap would require comparing every pair of tasks (O(n²)), which adds complexity and is harder to explain to an owner. Exact-time matching is O(n), easy to understand, and sufficient for a simple daily planner where tasks are usually assigned to distinct start times.
+- A Pythonic `itertools.groupby` rewrite was considered but rejected: it requires pre-sorting the list before grouping (a silent precondition) and adds an import, while the current `setdefault` loop is one readable pass with no hidden requirements.
+
 ---
 
 ## 3. AI Collaboration

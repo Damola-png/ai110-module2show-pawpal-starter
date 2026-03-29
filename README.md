@@ -91,6 +91,18 @@ classDiagram
 		Scheduler ..> CareTask : scores/selects
 ```
 
+## Smarter Scheduling
+
+Phase 3 added four algorithmic improvements to `pawpal_system.py`:
+
+**Sort by time** — `Scheduler.sort_by_time(tasks)` uses `sorted()` with a lambda key on each task's `scheduled_time` (`HH:MM` string). Tasks without a time sort to the end via the sentinel `"99:99"`. The final plan is always returned in chronological order.
+
+**Filter by status and pet** — `PawPalSystem.filter_tasks(status, pet_name)` accepts either or both filters and returns the matching subset. This lets the UI or CLI quickly ask "what is still pending for Mochi?" without iterating manually.
+
+**Recurring task support** — `CareTask` gained a `scheduled_weekday` field (0 = Monday … 6 = Sunday). `is_due_today(weekday)` now correctly handles `"weekly"` recurrence — a weekly task only appears in the plan on its scheduled day of the week.
+
+**Conflict detection** — `Scheduler.detect_time_conflicts(tasks)` scans all tasks for shared `HH:MM` start times and returns human-readable warning strings instead of raising an exception. It catches same-pet and cross-pet overlaps. Note: it matches exact start times only, not overlapping durations — a deliberate tradeoff for simplicity (see `reflection.md` §2b).
+
 ## CLI-first workflow
 
 Run the backend demo before using the UI:
