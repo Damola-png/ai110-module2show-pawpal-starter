@@ -389,6 +389,19 @@ class PawPalSystem:
             raise ValueError(f"window must be one of {sorted(VALID_DUE_WINDOWS)}")
         return [task for task in self.tasks if task.due_window == window and task.status == "pending"]
 
+    def reset_for_new_day(self) -> List[CareTask]:
+        """Reset all completed or skipped daily tasks back to pending, simulating the start of a new day.
+
+        Returns the list of tasks that were reset so callers can inspect or log them.
+        Weekly and once-off tasks are left untouched.
+        """
+        reset: List[CareTask] = []
+        for task in self.tasks:
+            if task.recurrence == "daily" and task.status in {"complete", "skipped"}:
+                task.status = "pending"
+                reset.append(task)
+        return reset
+
     def generate_daily_plan(self, pet_name: str, weekday: int | None = None) -> List[CareTask]:
         """Generate and return the scheduler's prioritized daily plan for the named pet."""
         pet = next((candidate for candidate in self.pets if candidate.pet_name.lower() == pet_name.lower()), None)

@@ -113,19 +113,38 @@ python demo_cli.py
 
 This prints a generated daily plan and explains why each task was selected.
 
-## Testing
+## Testing PawPal+
 
-Run tests with:
+Run the full test suite with:
 
 ```bash
-pytest -q
+python -m pytest
 ```
 
-Current tests verify:
-- time budget enforcement
-- conflict resolution behavior
-- pet-task relationship validation
-- decision explanation generation
+Or for a detailed per-test breakdown:
+
+```bash
+python -m pytest -v
+```
+
+### What the tests cover
+
+| Area | Tests |
+|---|---|
+| **Sorting** | Tasks added out of order return in `HH:MM` ascending order; untimed tasks always sort last |
+| **Recurrence** | Completed daily tasks are excluded from today's plan; `reset_for_new_day()` restores them to pending so they re-enter tomorrow's plan; weekly tasks appear only on their scheduled weekday and never when `weekday=None` |
+| **Conflict detection** | Two tasks sharing a start time produce a warning string; distinct times produce none; tasks with no time set are ignored; empty input never raises |
+| **Filtering** | `filter_tasks()` narrows by status, by pet name, and by both combined |
+| **Core scheduling** | Time budget is respected; conflict resolution keeps the highest-priority duplicate; unknown pets are rejected; decision explanations are generated |
+| **Edge cases** | Pet with zero tasks returns an empty plan; all-untimed sort returns the correct count |
+
+21 tests — 21 passing.
+
+### Confidence level
+
+★★★★☆ (4 / 5)
+
+The core scheduling behaviors (budget enforcement, conflict resolution, recurrence, sorting, filtering) are all covered by deterministic tests and pass consistently. One star is withheld because duration-overlap conflicts, calendar-aware weekly recurrence across month boundaries, and hard-constraint enforcement are not yet tested — known gaps documented in `reflection.md`.
 
 ## Streamlit app
 
