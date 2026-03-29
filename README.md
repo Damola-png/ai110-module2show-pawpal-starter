@@ -22,6 +22,109 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## System architecture (UML)
+
+```mermaid
+classDiagram
+		class OwnerProfile {
+			+owner_name: str
+			+timezone: str
+			+daily_available_minutes: int
+			+preferred_task_times: List~str~
+			+hard_constraints: List~str~
+			+update_profile(owner_name, timezone)
+			+set_time_budget(minutes)
+			+set_preferences(preferences)
+		}
+
+		class PetProfile {
+			+pet_name: str
+			+species: str
+			+breed: str
+			+age: int
+			+energy_level: str
+			+medical_notes: str
+			+routine_defaults: List~str~
+			+update_pet_info(pet_name, species)
+			+get_care_needs()
+			+flag_special_requirements()
+		}
+
+		class CareTask {
+			+task_id: str
+			+pet_name: str
+			+task_type: str
+			+duration_minutes: int
+			+priority: int
+			+due_window: str
+			+recurrence: str
+			+status: str
+			+edit_task(**updates)
+			+mark_complete()
+			+mark_skipped()
+			+is_due_today()
+		}
+
+		class Scheduler {
+			+scheduling_rules: List~str~
+			+priority_weights: Dict~str,int~
+			+constraint_settings: List~str~
+			+generate_plan(owner, pet, tasks)
+			+resolve_conflicts(tasks)
+			+score_task(task)
+			+explain_decision(task)
+		}
+
+		class PawPalSystem {
+			+owner: OwnerProfile
+			+pets: List~PetProfile~
+			+tasks: List~CareTask~
+			+add_task(task)
+			+get_tasks_for_pet(pet_name)
+			+generate_daily_plan(pet_name)
+		}
+
+		OwnerProfile "1" --> "1" PawPalSystem : configures
+		PawPalSystem "1" --> "many" PetProfile : manages
+		PawPalSystem "1" --> "many" CareTask : stores
+		PawPalSystem "1" --> "1" Scheduler : delegates to
+		Scheduler ..> CareTask : scores/selects
+```
+
+## CLI-first workflow
+
+Run the backend demo before using the UI:
+
+```bash
+python demo_cli.py
+```
+
+This prints a generated daily plan and explains why each task was selected.
+
+## Testing
+
+Run tests with:
+
+```bash
+pytest -q
+```
+
+Current tests verify:
+- time budget enforcement
+- conflict resolution behavior
+- pet-task relationship validation
+- decision explanation generation
+
+## Streamlit app
+
+Launch the app with:
+
+```bash
+streamlit run app.py
+```
+
+In the UI, add owner/pet data and tasks, then click **Generate schedule** to run the same backend scheduler used in CLI and tests.
+
 ## Getting started
 
 ### Setup
