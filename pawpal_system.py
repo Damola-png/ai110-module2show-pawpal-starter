@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Dict, List
 
@@ -47,6 +48,141 @@ class OwnerProfile:
         if invalid:
             raise ValueError(f"Unsupported preferred task times: {invalid}")
         self.preferred_task_times = normalized
+
+    def save_to_json(
+        self,
+        pets: List[PetProfile],
+        tasks: List[CareTask],
+        file_path: str = "data.json",
+    ) -> None:
+        """Persist owner, pets, and tasks to a JSON file."""
+        payload = {
+            "owner": {
+                "owner_name": self.owner_name,
+                "timezone": self.timezone,
+                "daily_available_minutes": self.daily_available_minutes,
+                "preferred_task_times": self.preferred_task_times,
+                "hard_constraints": self.hard_constraints,
+            },
+            "pets": [
+                {
+                    "pet_name": pet.pet_name,
+                    "species": pet.species,
+                    "breed": pet.breed,
+                    "age": pet.age,
+                    "energy_level": pet.energy_level,
+                    "medical_notes": pet.medical_notes,
+                    "routine_defaults": pet.routine_defaults,
+                }
+                for pet in pets
+            ],
+            "tasks": [
+                {
+                    "task_id": task.task_id,
+                    "pet_name": task.pet_name,
+                    "task_type": task.task_type,
+                    "duration_minutes": task.duration_minutes,
+                    "priority": task.priority,
+                    "due_window": task.due_window,
+                    "recurrence": task.recurrence,
+                    "status": task.status,
+                    "scheduled_weekday": task.scheduled_weekday,
+                    "scheduled_time": task.scheduled_time,
+                }
+                for task in tasks
+            ],
+        }
+
+        with open(file_path, "w", encoding="utf-8") as file:
+            json.dump(payload, file, indent=2)
+
+    @classmethod
+    def load_from_json(
+        cls,
+        file_path: str = "data.json",
+    ) -> tuple[OwnerProfile, List[PetProfile], List[CareTask]]:
+        """Load owner, pets, and tasks from JSON; fall back to defaults if missing/corrupt."""
+        default_owner = cls(owner_name="Jordan", daily_available_minutes=90, preferred_task_times=["morning"])
+        default_pet = PetProfile(pet_name="Mochi", species="dog")
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as file:
+                data = json.load(file)
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            return default_owner, [default_pet], []
+
+        owner_data = data.get("owner", {}) if isinstance(data, dict) else {}
+        pets_data = data.get("pets", []) if isinstance(data, dict) else []
+        tasks_data = data.get("tasks", []) if isinstance(data, dict) else []
+
+        owner = default_owner
+        if isinstance(owner_data, dict):
+            try:
+                owner = cls(
+                    owner_name=str(owner_data.get("owner_name", default_owner.owner_name)),
+                    timezone=str(owner_data.get("timezone", default_owner.timezone)),
+                    daily_available_minutes=int(
+                        owner_data.get("daily_available_minutes", default_owner.daily_available_minutes)
+                    ),
+                    preferred_task_times=list(
+                        owner_data.get("preferred_task_times", default_owner.preferred_task_times)
+                    ),
+                    hard_constraints=list(owner_data.get("hard_constraints", default_owner.hard_constraints)),
+                )
+                owner.set_time_budget(owner.daily_available_minutes)
+                owner.set_preferences(owner.preferred_task_times)
+                owner.update_profile(owner_name=owner.owner_name, timezone=owner.timezone)
+            except (TypeError, ValueError):
+                owner = default_owner
+
+        pets: List[PetProfile] = []
+        if isinstance(pets_data, list):
+            for pet_data in pets_data:
+                if not isinstance(pet_data, dict):
+                    continue
+                try:
+                    pet = PetProfile(
+                        pet_name=str(pet_data.get("pet_name", "")).strip(),
+                        species=str(pet_data.get("species", "")).strip().lower(),
+                        breed=str(pet_data.get("breed", "")),
+                        age=int(pet_data.get("age", 0)),
+                        energy_level=str(pet_data.get("energy_level", "medium")),
+                        medical_notes=str(pet_data.get("medical_notes", "")),
+                        routine_defaults=list(pet_data.get("routine_defaults", [])),
+                    )
+                    pet.update_pet_info(pet_name=pet.pet_name, species=pet.species)
+                    pets.append(pet)
+                except (TypeError, ValueError):
+                    continue
+        if not pets:
+            pets = [default_pet]
+
+        pet_names = {pet.pet_name.lower() for pet in pets}
+        tasks: List[CareTask] = []
+        if isinstance(tasks_data, list):
+            for task_data in tasks_data:
+                if not isinstance(task_data, dict):
+                    continue
+                try:
+                    task = CareTask(
+                        task_id=str(task_data.get("task_id", "")).strip(),
+                        pet_name=str(task_data.get("pet_name", "")).strip(),
+                        task_type=str(task_data.get("task_type", "")).strip(),
+                        duration_minutes=int(task_data.get("duration_minutes", 0)),
+                        priority=int(task_data.get("priority", 0)),
+                        due_window=str(task_data.get("due_window", "anytime")).strip(),
+                        recurrence=str(task_data.get("recurrence", "daily")).strip(),
+                        status=str(task_data.get("status", "pending")).strip(),
+                        scheduled_weekday=task_data.get("scheduled_weekday"),
+                        scheduled_time=str(task_data.get("scheduled_time", "")).strip(),
+                    )
+                except (TypeError, ValueError):
+                    continue
+
+                if task.pet_name.lower() in pet_names:
+                    tasks.append(task)
+
+        return owner, pets, tasks
 
 
 @dataclass
@@ -177,6 +313,15 @@ class CareTask:
         """Set the task status to 'skipped'."""
         self.status = "skipped"
 
+    @property
+    def priority_level(self) -> str:
+        """Return a human-readable priority label based on numeric priority."""
+        if self.priority >= 5:
+            return "High"
+        if self.priority >= 3:
+            return "Medium"
+        return "Low"
+
     def is_due_today(self, weekday: int | None = None) -> bool:
         """Return True if the task is pending and due on the given weekday (0=Mon…6=Sun).
 
@@ -196,6 +341,13 @@ class CareTask:
 
 
 class Scheduler:
+    WINDOW_TIME_RANGES = {
+        "morning": (7 * 60, 12 * 60),
+        "afternoon": (12 * 60, 17 * 60),
+        "evening": (17 * 60, 22 * 60),
+        "anytime": (7 * 60, 22 * 60),
+    }
+
     def __init__(
         self,
         scheduling_rules: List[str] | None = None,
@@ -243,10 +395,81 @@ class Scheduler:
                 used_minutes = projected_time
                 self._last_explanations[task.task_id] = self.explain_decision(task)
 
-        # Re-sort selected tasks chronologically by time window for display
         selected.sort(key=lambda t: WINDOW_ORDER.get(t.due_window, 99))
+        selected = self.assign_next_available_slots(selected)
+        return self.sort_by_priority_then_time(selected)
 
-        return selected
+    @staticmethod
+    def _to_minutes(hhmm: str) -> int:
+        hour, minute = hhmm.split(":")
+        return int(hour) * 60 + int(minute)
+
+    @staticmethod
+    def _to_hhmm(total_minutes: int) -> str:
+        hour = total_minutes // 60
+        minute = total_minutes % 60
+        return f"{hour:02d}:{minute:02d}"
+
+    def _find_next_slot(
+        self,
+        duration_minutes: int,
+        range_start: int,
+        range_end: int,
+        occupied_intervals: List[tuple[int, int]],
+    ) -> int | None:
+        cursor = range_start
+        overlapping = sorted(
+            (start, end)
+            for start, end in occupied_intervals
+            if end > range_start and start < range_end
+        )
+
+        for start, end in overlapping:
+            if cursor + duration_minutes <= start:
+                return cursor
+            cursor = max(cursor, end)
+
+        if cursor + duration_minutes <= range_end:
+            return cursor
+        return None
+
+    def assign_next_available_slots(self, tasks: List[CareTask]) -> List[CareTask]:
+        occupied_intervals: List[tuple[int, int]] = []
+        for task in tasks:
+            if not task.scheduled_time:
+                continue
+            start = self._to_minutes(task.scheduled_time)
+            occupied_intervals.append((start, start + task.duration_minutes))
+
+        for task in tasks:
+            if task.scheduled_time:
+                continue
+
+            range_start, range_end = self.WINDOW_TIME_RANGES.get(
+                task.due_window,
+                self.WINDOW_TIME_RANGES["anytime"],
+            )
+            slot = self._find_next_slot(
+                task.duration_minutes,
+                range_start,
+                range_end,
+                occupied_intervals,
+            )
+
+            if slot is None:
+                fallback_start, fallback_end = self.WINDOW_TIME_RANGES["anytime"]
+                slot = self._find_next_slot(
+                    task.duration_minutes,
+                    fallback_start,
+                    fallback_end,
+                    occupied_intervals,
+                )
+
+            if slot is not None:
+                task.scheduled_time = self._to_hhmm(slot)
+                occupied_intervals.append((slot, slot + task.duration_minutes))
+
+        return tasks
 
     def resolve_conflicts(self, tasks: List[CareTask]) -> List[CareTask]:
         """Deduplicate same-type tasks per pet, keeping the highest-priority one; warn on cross-window duplicates."""
@@ -306,6 +529,16 @@ class Scheduler:
         return sorted(
             tasks,
             key=lambda task: task.scheduled_time if task.scheduled_time else "99:99"
+        )
+
+    def sort_by_priority_then_time(self, tasks: List[CareTask]) -> List[CareTask]:
+        """Return tasks sorted by priority (high to low), then scheduled_time (earliest first)."""
+        return sorted(
+            tasks,
+            key=lambda task: (
+                -task.priority,
+                task.scheduled_time if task.scheduled_time else "99:99",
+            ),
         )
 
     def get_last_conflicts(self) -> List[str]:

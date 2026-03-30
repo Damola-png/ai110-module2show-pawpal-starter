@@ -138,7 +138,7 @@ classDiagram
 
 ## Smarter Scheduling
 
-Phase 3 added four algorithmic improvements to `pawpal_system.py`:
+Phase 3 added five algorithmic improvements to `pawpal_system.py`:
 
 **Sort by time** — `Scheduler.sort_by_time(tasks)` uses `sorted()` with a lambda key on each task's `scheduled_time` (`HH:MM` string). Tasks without a time sort to the end via the sentinel `"99:99"`. The final plan is always returned in chronological order.
 
@@ -147,6 +147,8 @@ Phase 3 added four algorithmic improvements to `pawpal_system.py`:
 **Recurring task support** — `CareTask` gained a `scheduled_weekday` field (0 = Monday … 6 = Sunday). `is_due_today(weekday)` now correctly handles `"weekly"` recurrence — a weekly task only appears in the plan on its scheduled day of the week.
 
 **Conflict detection** — `Scheduler.detect_time_conflicts(tasks)` scans all tasks for shared `HH:MM` start times and returns human-readable warning strings instead of raising an exception. It catches same-pet and cross-pet overlaps. Note: it matches exact start times only, not overlapping durations — a deliberate tradeoff for simplicity (see `reflection.md` §2b).
+
+**Next available slot assignment** — `Scheduler.assign_next_available_slots(tasks)` auto-assigns `scheduled_time` for tasks without one. It places each untimed task into the earliest non-overlapping interval inside its due window (`morning`, `afternoon`, `evening`, `anytime`) and falls back to the broader `anytime` range if a specific window is full.
 
 ## CLI-first workflow
 
@@ -220,3 +222,13 @@ pip install -r requirements.txt
 5. Add tests to verify key behaviors.
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
+
+## Agent Mode usage
+
+Agent Mode was used as a coding collaborator to implement the new scheduling logic in small, verifiable steps:
+
+1. Reviewed `Scheduler.generate_plan()` plus existing tests to identify where slot assignment should run.
+2. Implemented `assign_next_available_slots()` with helper logic to convert `HH:MM` times, scan occupied intervals, and find the earliest valid gap.
+3. Integrated the slot assignment step before final chronological sorting so generated plans show concrete start times.
+4. Added targeted tests covering untimed-task slot assignment and gap-aware placement when a timed task already exists.
+5. Re-ran pytest to confirm the new capability passed and existing behavior remained stable.

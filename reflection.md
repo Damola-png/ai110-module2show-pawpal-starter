@@ -101,3 +101,29 @@ Core user actions:
 **c. Key takeaway**
 
 - A key takeaway is that AI is most useful when given precise, scoped prompts and then paired with human verification; architecture and testing decisions still require deliberate judgment.
+
+---
+
+## 6. Prompt Comparison (OpenAI vs Claude)
+
+For a more complex algorithmic task, I compared model outputs for **weekly task rescheduling**.
+
+**Task chosen**
+
+- "If a weekly task cannot be scheduled on its target day due to budget overflow, automatically reschedule it to the next valid weekday within 7 days while preserving priority order and avoiding duplicate task-type conflicts for the same pet."
+
+**Shared prompt used with both models**
+
+- "In `pawpal_system.py`, design a modular Python solution for weekly rescheduling. Add helper methods for: (1) finding next valid weekday, (2) checking duplicate conflict constraints, and (3) applying reschedule updates. Return type hints, edge-case handling, and pytest-ready function boundaries."
+
+**Model comparison**
+
+- **OpenAI (GPT-5.3-Codex)** produced the more modular and Pythonic solution.
+- It separated responsibilities into smaller helpers, used clearer type hints and guard clauses, and aligned better with existing class boundaries (`Scheduler` for policy, `CareTask` for task state).
+- The proposed method signatures were easier to test in isolation and required fewer structural changes to existing code.
+- **Claude** produced a workable approach, but it leaned toward a larger monolithic rescheduling function with more branching, which was harder to unit test and refactor incrementally.
+
+**Why this mattered for PawPal+**
+
+- The OpenAI output fit the project style (small deterministic helpers + explicit constraints), making it easier to integrate without breaking current tests.
+- It also improved maintainability: future features like holiday skipping or blackout windows can be added as focused helper methods instead of rewriting one large function.

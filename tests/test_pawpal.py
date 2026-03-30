@@ -72,6 +72,56 @@ def test_sort_by_time_all_untimed_returns_same_count():
     assert len(result) == 2
 
 
+def test_priority_level_labels_are_derived_from_numeric_priority():
+    low = CareTask("low", "Mochi", "feeding", 10, priority=2)
+    medium = CareTask("med", "Mochi", "walk", 20, priority=3)
+    high = CareTask("high", "Mochi", "medication", 5, priority=5)
+
+    assert low.priority_level == "Low"
+    assert medium.priority_level == "Medium"
+    assert high.priority_level == "High"
+
+
+def test_sort_by_priority_then_time_orders_high_first_then_earlier_time():
+    scheduler = Scheduler()
+    tasks = [
+        CareTask("a", "Mochi", "feeding", 10, priority=3, scheduled_time="07:30"),
+        CareTask("b", "Mochi", "walk", 30, priority=5, scheduled_time="08:30"),
+        CareTask("c", "Mochi", "medication", 5, priority=5, scheduled_time="08:00"),
+    ]
+
+    result = scheduler.sort_by_priority_then_time(tasks)
+
+    assert [task.task_id for task in result] == ["c", "b", "a"]
+
+
+def test_assign_next_available_slots_sets_time_for_untimed_tasks():
+    """Untimed tasks should receive a concrete HH:MM start time in due-window order."""
+    scheduler = Scheduler()
+    tasks = [
+        CareTask("a", "Mochi", "walk", 30, priority=4, due_window="morning"),
+        CareTask("b", "Mochi", "feeding", 10, priority=5, due_window="morning"),
+    ]
+
+    result = scheduler.assign_next_available_slots(tasks)
+
+    assert result[0].scheduled_time == "07:00"
+    assert result[1].scheduled_time == "07:30"
+
+
+def test_assign_next_available_slots_respects_existing_timed_tasks():
+    """Untimed tasks should be placed in the next gap after already-timed intervals."""
+    scheduler = Scheduler()
+    tasks = [
+        CareTask("existing", "Mochi", "medication", 20, priority=5, due_window="morning", scheduled_time="07:00"),
+        CareTask("new", "Mochi", "walk", 30, priority=4, due_window="morning"),
+    ]
+
+    result = scheduler.assign_next_available_slots(tasks)
+
+    assert result[1].scheduled_time == "07:20"
+
+
 # ── recurrence logic ──────────────────────────────────────────────────────────
 
 def test_daily_task_excluded_from_plan_when_complete():

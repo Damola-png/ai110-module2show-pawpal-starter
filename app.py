@@ -6,32 +6,87 @@ st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 st.title("🐾 PawPal+")
 st.caption("Plan and prioritize your pet care tasks with a smart scheduling engine.")
 
+
+def _priority_badge(priority: int) -> str:
+    if priority >= 5:
+        return "🔴 High"
+    if priority >= 3:
+        return "🟡 Medium"
+    return "🟢 Low"
+
+
+def _persist_data() -> None:
+    owner = OwnerProfile(
+        owner_name=st.session_state.owner_name,
+        daily_available_minutes=int(st.session_state.daily_budget),
+        preferred_task_times=list(st.session_state.preferred_times),
+    )
+    pet = PetProfile(
+        pet_name=st.session_state.pet_name,
+        species=st.session_state.species,
+    )
+    tasks = [
+        CareTask(
+            task_id=row["task_id"],
+            pet_name=st.session_state.pet_name,
+            task_type=row["task_type"],
+            duration_minutes=row["duration_minutes"],
+            priority=row["priority"],
+            due_window=row["due_window"],
+            scheduled_time=row["scheduled_time"],
+        )
+        for row in st.session_state.tasks
+    ]
+    owner.save_to_json([pet], tasks)
+
+
+if "persistence_loaded" not in st.session_state:
+    loaded_owner, loaded_pets, loaded_tasks = OwnerProfile.load_from_json()
+    loaded_pet = loaded_pets[0] if loaded_pets else PetProfile(pet_name="Mochi", species="dog")
+
+    st.session_state.owner_name = loaded_owner.owner_name
+    st.session_state.daily_budget = loaded_owner.daily_available_minutes
+    st.session_state.preferred_times = loaded_owner.preferred_task_times or ["morning"]
+
+    st.session_state.pet_name = loaded_pet.pet_name
+    st.session_state.species = loaded_pet.species if loaded_pet.species in {"dog", "cat", "other"} else "other"
+
+    st.session_state.tasks = [
+        {
+            "task_id": task.task_id,
+            "task_type": task.task_type,
+            "duration_minutes": task.duration_minutes,
+            "priority": task.priority,
+            "due_window": task.due_window,
+            "scheduled_time": task.scheduled_time,
+        }
+        for task in loaded_tasks
+    ]
+    st.session_state.persistence_loaded = True
+
 st.divider()
 
 # ── 1. Owner + Pet ────────────────────────────────────────────────────────────
 st.subheader("Owner & Pet")
 col_a, col_b = st.columns(2)
 with col_a:
-    owner_name = st.text_input("Owner name", value="Jordan")
+    owner_name = st.text_input("Owner name", key="owner_name")
     daily_budget = st.number_input(
-        "Daily available minutes", min_value=10, max_value=600, value=90
+        "Daily available minutes", min_value=10, max_value=600, key="daily_budget"
     )
     preferred_times = st.multiselect(
         "Preferred task windows",
         ["morning", "afternoon", "evening", "anytime"],
-        default=["morning"],
+        key="preferred_times",
     )
 with col_b:
-    pet_name = st.text_input("Pet name", value="Mochi")
-    species = st.selectbox("Species", ["dog", "cat", "other"])
+    pet_name = st.text_input("Pet name", key="pet_name")
+    species = st.selectbox("Species", ["dog", "cat", "other"], key="species")
 
 st.divider()
 
 # ── 2. Add tasks ──────────────────────────────────────────────────────────────
 st.subheader("Add a Task")
-
-if "tasks" not in st.session_state:
-    st.session_state.tasks = []
 
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -79,6 +134,7 @@ if st.button("Add task", type="primary"):
                 "scheduled_time": scheduled_time.strip(),
             }
         )
+        _persist_data()
         st.success(f"Added: {task_type} ({duration} min, {due_window})")
 
 # Current task list
@@ -90,7 +146,7 @@ if st.session_state.tasks:
             "Window": t["due_window"],
             "Start": t["scheduled_time"] if t["scheduled_time"] else "--:--",
             "Duration": f"{t['duration_minutes']} min",
-            "Priority": t["priority"],
+            "Priority": _priority_badge(t["priority"]),
         }
         for t in st.session_state.tasks
     ]
@@ -98,6 +154,7 @@ if st.session_state.tasks:
 
     if st.button("Clear all tasks"):
         st.session_state.tasks = []
+        _persist_data()
         st.rerun()
 else:
     st.info("No tasks yet — add one above.")
@@ -158,6 +215,14 @@ if st.button("Generate schedule", type="primary"):
         cross_window_conflicts = scheduler.get_last_conflicts()
         explanations = scheduler.get_last_explanations()
 
+        task_by_id = {task.task_id: task for task in system.tasks}
+        for row in st.session_state.tasks:
+            updated = task_by_id.get(row["task_id"])
+            if updated is not None:
+                row["scheduled_time"] = updated.scheduled_time
+
+        _persist_data()
+
         if cross_window_conflicts:
             for conflict in cross_window_conflicts:
                 msg = conflict.replace("WARNING: ", "")
@@ -166,7 +231,7 @@ if st.button("Generate schedule", type="primary"):
         if not plan:
             st.info("No tasks fit within the current daily time budget.")
         else:
-            sorted_plan = scheduler.sort_by_time(plan)
+            sorted_plan = scheduler.sort_by_priority_then_time(plan)
             used = sum(t.duration_minutes for t in sorted_plan)
 
             st.success(
@@ -183,7 +248,7 @@ if st.button("Generate schedule", type="primary"):
                         "Window": t.due_window,
                         "Task": t.task_type,
                         "Duration": f"{t.duration_minutes} min",
-                        "Priority": t.priority,
+                        "Priority": _priority_badge(t.priority),
                         "Status": t.status,
                     }
                     for t in sorted_plan
