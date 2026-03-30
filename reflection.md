@@ -25,6 +25,13 @@ Core user actions:
 - Coordination bottleneck: there was no orchestration class to manage owner, pets, and task collections together. I added a `PawPalSystem` class to centralize task management and delegate planning to `Scheduler`.
 - These changes improve cohesion: entity classes remain focused on data, the scheduler stays algorithm-focused, and system-level workflow lives in one place.
 
+**c. UML updates after final implementation**
+
+- `CareTask` gained `scheduled_weekday: int` and `scheduled_time: str` to support weekly recurrence and HH:MM-based sorting. `is_due_today()` now takes a `weekday` parameter.
+- `Scheduler` grew from 4 methods to 10. The additions — `sort_by_time()`, `detect_time_conflicts()`, `score_task()`, `explain_decision()`, `get_last_explanations()`, `get_last_conflicts()` — reflect that sorting and conflict detection belong to the scheduling layer, not the system orchestrator.
+- `PawPalSystem` gained `filter_tasks()`, `get_tasks_by_status()`, `get_tasks_for_window()`, and `reset_for_new_day()`, reflecting that day-to-day task management is an orchestration concern.
+- Two new relationships were added to the UML: `Scheduler ..> OwnerProfile` (reads budget and preferences directly) and `CareTask --> PetProfile` (ownership via `pet_name`).
+
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
@@ -53,6 +60,8 @@ Core user actions:
 
 **a. How you used AI**
 
+
+- 
 - I used AI for design review, class skeleton refinement, and implementation scaffolding of scheduling logic and validation rules.
 - The most helpful prompts were specific and file-aware, such as asking for missing relationships and potential bottlenecks in `pawpal_system.py`, then requesting focused changes (not broad rewrites).
 - I also used AI to generate a Mermaid UML that stayed aligned with the actual implemented class structure.

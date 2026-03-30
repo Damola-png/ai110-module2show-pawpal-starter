@@ -46,8 +46,8 @@ classDiagram
 			+medical_notes: str
 			+routine_defaults: List~str~
 			+update_pet_info(pet_name, species)
-			+get_care_needs()
-			+flag_special_requirements()
+			+get_care_needs() List~str~
+			+flag_special_requirements() List~str~
 		}
 
 		class CareTask {
@@ -59,36 +59,49 @@ classDiagram
 			+due_window: str
 			+recurrence: str
 			+status: str
+			+scheduled_weekday: int
+			+scheduled_time: str
 			+edit_task(**updates)
 			+mark_complete()
 			+mark_skipped()
-			+is_due_today()
+			+is_due_today(weekday) bool
 		}
 
 		class Scheduler {
 			+scheduling_rules: List~str~
 			+priority_weights: Dict~str,int~
 			+constraint_settings: List~str~
-			+generate_plan(owner, pet, tasks)
-			+resolve_conflicts(tasks)
-			+score_task(task)
-			+explain_decision(task)
+			+generate_plan(owner, pet, tasks, weekday) List~CareTask~
+			+resolve_conflicts(tasks) List~CareTask~
+			+sort_by_time(tasks) List~CareTask~
+			+detect_time_conflicts(tasks) List~str~
+			+score_task(task) int
+			+explain_decision(task) str
+			+get_last_explanations() Dict~str,str~
+			+get_last_conflicts() List~str~
 		}
 
 		class PawPalSystem {
 			+owner: OwnerProfile
 			+pets: List~PetProfile~
 			+tasks: List~CareTask~
+			+scheduler: Scheduler
 			+add_task(task)
-			+get_tasks_for_pet(pet_name)
-			+generate_daily_plan(pet_name)
+			+get_tasks_for_pet(pet_name) List~CareTask~
+			+filter_tasks(status, pet_name) List~CareTask~
+			+get_tasks_by_status(status) List~CareTask~
+			+get_tasks_for_window(window) List~CareTask~
+			+reset_for_new_day() List~CareTask~
+			+generate_daily_plan(pet_name, weekday) List~CareTask~
 		}
 
 		OwnerProfile "1" --> "1" PawPalSystem : configures
 		PawPalSystem "1" --> "many" PetProfile : manages
 		PawPalSystem "1" --> "many" CareTask : stores
 		PawPalSystem "1" --> "1" Scheduler : delegates to
-		Scheduler ..> CareTask : scores/selects
+		Scheduler ..> CareTask : sorts / scores / selects
+		Scheduler ..> OwnerProfile : reads budget + preferences
+		CareTask --> PetProfile : belongs to (pet_name)
 ```
 
 ## Smarter Scheduling
