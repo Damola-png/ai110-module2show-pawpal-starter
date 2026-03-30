@@ -1,6 +1,38 @@
 # PawPal+ (Module 2 Project)
 
-You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
+**PawPal+** is a Python-powered pet care scheduling assistant with a Streamlit UI. It takes a pet owner's time constraints, task priorities, and pet profile, then produces a sorted, conflict-checked daily plan — and explains every decision it makes.
+
+## 📸 Demo
+
+<a href="/course_images/ai110/pawpal_screenshot.png" target="_blank"><img src='/course_images/ai110/pawpal_screenshot.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+
+## Features
+
+### Core scheduling
+- **Priority-based task selection** — tasks are scored by priority (1–5), task-type weights (e.g. medication scores higher than grooming), and time-window specificity. Higher-scoring tasks are selected first.
+- **Daily time budget enforcement** — the scheduler fills the owner's available minutes greedily, stopping before the budget is exceeded. Tasks that don't fit are surfaced as "not scheduled" with an explanation.
+- **Owner preference bonus** — tasks whose due window matches the owner's preferred times receive a score boost, so morning people get morning-first plans.
+
+### Sorting
+- **Sort by time (`sort_by_time`)** — the final plan is always displayed in `HH:MM` chronological order using `sorted()` with a lambda key. Tasks without a start time sort to the end via a `"99:99"` sentinel, so they never jump ahead of timed tasks.
+
+### Conflict detection
+- **Exact-time conflict warnings (`detect_time_conflicts`)** — scans all tasks for shared `HH:MM` start times across any pet and returns plain-English warning strings without crashing. Shown as `st.warning` banners in the UI so the owner sees them immediately above the schedule.
+- **Cross-window duplicate detection (`resolve_conflicts`)** — if the same task type appears in multiple time windows for one pet (e.g. "feeding" at morning and evening), the scheduler keeps the highest-priority version and warns about the rest.
+
+### Recurrence
+- **Daily recurrence** — daily tasks are included in every plan while their status is `pending`. Marking one `complete` removes it from the same day; `reset_for_new_day()` restores all completed daily tasks to `pending` for the next day.
+- **Weekly recurrence** — tasks can be pinned to a specific weekday (0 = Monday … 6 = Sunday). A Saturday grooming task only appears in Saturday's plan; it is invisible every other day.
+
+### Filtering & querying
+- **Filter by status and pet (`filter_tasks`)** — returns any combination of status (`pending` / `complete` / `skipped`) and pet name, making it easy to ask "what still needs to be done for Mochi today?"
+- **Window snapshot (`get_tasks_for_window`)** — returns all pending tasks scheduled for a given time window across all pets.
+
+### Explainability
+- **Decision explanations** — every selected task gets a plain-English reason: priority score, duration, time window type, recurrence, and type weight. Displayed as `st.success` cards in the UI.
+- **Tasks left out** — tasks excluded by the budget are listed separately with a reason, so nothing silently disappears.
+
+---
 
 ## Scenario
 
